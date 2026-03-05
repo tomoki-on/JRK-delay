@@ -1,0 +1,54 @@
+name: Check JR Kobe Line Delay
+
+on:
+  schedule:
+    # 毎朝6:00から9:00の間、5分間隔で実行する (UTCで 21:00 から 00:00)
+    # cronの書式: 分 時 日 月 曜日
+    # 例: 朝6時: JST(UTC+9) は UTC 21時
+    - cron: '*/5 21-23,0 * * 1-5' # 月〜金、JST 6:00〜9:55
+  workflow_dispatch: # 手動実行用
+
+jobs:
+  check-delay:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # Issueを作成するための権限
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          pip install requests
+
+      - name: Run script to check delay
+        id: check
+        run: |
+          python check_delay.py > output.txt
+          cat output.txt
+          if grep -q ">>> DELAY_DETECTED <<<" output.txt; then
+            echo "delay_detected=true" >> $GITHUB_ENV
+          else
+            echo "delay_detected=false" >> $GITHUB_ENV
+          fi
+
+      - name: Create Issue if delay detected
+        if: env.delay_detected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # 既にあるIssueの重複作成を防ぐための簡易チェック（1日1回など）等も可能ですが、
+          # ここではシンプルに毎回Issueを作成します
+          BODY=$(cat output.txt)
+          TITLE="⚠️ JR神戸線 遅延通知: $(date +'%Y-%m-%d %H:%M')"
+          
+          gh issue create \
+            --title "$TITLE" \
+            --body "@${{ github.actor }} 運行情報に遅れがあります。詳細: $BODY" \
+            --label "delay-notification" || echo "Failed to create issue"
