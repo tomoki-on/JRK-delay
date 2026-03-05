@@ -12,7 +12,8 @@ jobs:
   check-delay:
     runs-on: ubuntu-latest
     permissions:
-      issues: write # Issueを作成するための権限
+      contents: read  # リポジトリをチェックアウトするための権限
+      issues: write   # Issueを作成するための権限
     
     steps:
       - name: Checkout repository
@@ -60,13 +61,15 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BODY=$(cat output.txt)
+          echo "@${{ github.actor }} 運行情報に遅れがあります。詳細:" > issue_body.txt
+          echo '```text' >> issue_body.txt
+          cat output.txt >> issue_body.txt
+          echo '```' >> issue_body.txt
+          
           # Issueのタイトル (タイムゾーンがUTCのため、JSTの時間を取得)
           TITLE="⚠️ JR神戸線 遅延通知: $(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M')"
           
-          # || echo "..." を外し、失敗時にワークフローが赤くなるようにします
+          # ラベルが存在しないとエラーになるため、一旦ラベル指定を外します
           gh issue create \
             --title "$TITLE" \
-            --body "@${{ github.actor }} 運行情報に遅れがあります。詳細: $BODY" \
-            --label "delay-notification"
-
+            --body-file issue_body.txt
