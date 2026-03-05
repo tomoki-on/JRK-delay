@@ -30,12 +30,29 @@ jobs:
       - name: Run script to check delay
         id: check
         run: |
-          python check_delay.py > output.txt
+          # ユーザーが .github/workflows に py ファイルを配置した場合に対応
+          if [ -f ".github/workflows/check_delay.py" ]; then
+            python .github/workflows/check_delay.py > output.txt
+          else
+            python check_delay.py > output.txt
+          fi
+          
+          echo "=== 実行結果 ==="
           cat output.txt
+          echo "==============="
+          
+          # GitHub ActionsのSummaryに結果を表示
+          echo "### 🔍 JR Kobe Line Delay Check" >> $GITHUB_STEP_SUMMARY
+          echo '```text' >> $GITHUB_STEP_SUMMARY
+          cat output.txt >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          
           if grep -q ">>> DELAY_DETECTED <<<" output.txt; then
             echo "delay_detected=true" >> $GITHUB_ENV
+            echo "⚠️ **遅延を検知しました。Issueを作成します。**" >> $GITHUB_STEP_SUMMARY
           else
             echo "delay_detected=false" >> $GITHUB_ENV
+            echo "✅ 遅延は検知されませんでした。Issue作成をスキップします。" >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Create Issue if delay detected
@@ -43,12 +60,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # 既にあるIssueの重複作成を防ぐための簡易チェック（1日1回など）等も可能ですが、
-          # ここではシンプルに毎回Issueを作成します
           BODY=$(cat output.txt)
-          TITLE="⚠️ JR神戸線 遅延通知: $(date +'%Y-%m-%d %H:%M')"
+          # Issueのタイトル (タイムゾーンがUTCのため、JSTの時間を取得)
+          TITLE="⚠️ JR神戸線 遅延通知: $(TZ=Asia/Tokyo date +'%Y-%m-%d %H:%M')"
           
+          # || echo "..." を外し、失敗時にワークフローが赤くなるようにします
           gh issue create \
             --title "$TITLE" \
             --body "@${{ github.actor }} 運行情報に遅れがあります。詳細: $BODY" \
-            --label "delay-notification" || echo "Failed to create issue"
+            --label "delay-notification"
+
