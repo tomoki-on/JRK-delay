@@ -2,10 +2,10 @@ name: Check JR Kobe Line Delay
 
 on:
   schedule:
-    # 毎朝6:00から9:00の間、5分間隔で実行する (UTCで 21:00 から 00:00)
+    # 毎朝6:00から7:00の間、5分間隔で実行する (UTCで 21:00 から 22：00)
     # cronの書式: 分 時 日 月 曜日
     # 例: 朝6時: JST(UTC+9) は UTC 21時
-    - cron: '*/5 21-23,0 * * 1-5' # 月〜金、JST 6:00〜9:55
+    - cron: '*/5 21 * * 1-5' # 月〜金、JST 6:00〜7:00
   workflow_dispatch: # 手動実行用
 
 jobs:
@@ -73,3 +73,4 @@ jobs:
           gh issue create \
             --title "$TITLE" \
             --body-file issue_body.txt
+
